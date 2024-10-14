@@ -122,7 +122,6 @@ class OAuthLibMixin:
         :param request: The current django.http.HttpRequest object
         """
         core = self.get_oauthlib_core()
-        breakpoint()
         return core.create_device_authorization_response(request)
 
 
