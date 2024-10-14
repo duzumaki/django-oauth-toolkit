@@ -7,6 +7,7 @@ from oauth2_provider.compat import login_not_required
 from django.utils.decorators import method_decorator
 from django import http
 from oauthlib.oauth2.rfc8628.endpoints.pre_configured import DeviceApplicationServer
+from oauth2_provider.
 
 
 @method_decorator(csrf_exempt, name="dispatch")
