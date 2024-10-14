@@ -154,14 +154,12 @@ class OAuthLibCore:
     def create_device_authorization_response(self, request: HttpRequest):
         uri, http_method, body, headers = self._extract_params(request)
         try:
-            self.server.verification_uri = oauth2_settings.OAUTH_DEVICE_VERIFICATION_URI
-
             headers, body, status = self.server.create_device_authorization_response(
                 uri, http_method, body, headers
             )
-            return uri, headers, body, status
+            return headers, body, status
         except OAuth2Error as exc:
-            return None, exc.headers, exc.json, exc.status_code
+            return exc.headers, exc.json, exc.status_code
 
     def create_token_response(self, request):
         """
