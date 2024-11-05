@@ -84,6 +84,7 @@ class AbstractApplication(models.Model):
         (CLIENT_CONFIDENTIAL, _("Confidential")),
         (CLIENT_PUBLIC, _("Public")),
     )
+    GRANT_DEVICE_CODE = "device_code"
 
     GRANT_AUTHORIZATION_CODE = "authorization-code"
     GRANT_IMPLICIT = "implicit"
@@ -653,6 +654,11 @@ class IDToken(AbstractIDToken):
 def get_application_model():
     """Return the Application model that is active in this project."""
     return apps.get_model(oauth2_settings.APPLICATION_MODEL)
+
+
+def get_device_model():
+    """Return the Device model that is active in this project."""
+    return apps.get_model(oauth2_settings.DEVICE_MODEL)
 
 
 def get_grant_model():

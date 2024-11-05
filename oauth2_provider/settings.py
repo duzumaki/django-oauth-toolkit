@@ -32,6 +32,7 @@ ACCESS_TOKEN_MODEL = getattr(settings, "OAUTH2_PROVIDER_ACCESS_TOKEN_MODEL", "oa
 ID_TOKEN_MODEL = getattr(settings, "OAUTH2_PROVIDER_ID_TOKEN_MODEL", "oauth2_provider.IDToken")
 GRANT_MODEL = getattr(settings, "OAUTH2_PROVIDER_GRANT_MODEL", "oauth2_provider.Grant")
 REFRESH_TOKEN_MODEL = getattr(settings, "OAUTH2_PROVIDER_REFRESH_TOKEN_MODEL", "oauth2_provider.RefreshToken")
+DEVICE_MODEL = getattr(settings, "OAUTH2_PROVIDER_DEVICE_MODEL", "oauth2_provider.DeviceModel")
 
 DEFAULTS = {
     "CLIENT_ID_GENERATOR_CLASS": "oauth2_provider.generators.ClientIdGenerator",
@@ -62,6 +63,7 @@ DEFAULTS = {
     "APPLICATION_MODEL": APPLICATION_MODEL,
     "ACCESS_TOKEN_MODEL": ACCESS_TOKEN_MODEL,
     "ID_TOKEN_MODEL": ID_TOKEN_MODEL,
+    "DEVICE_MODEL": DEVICE_MODEL,
     "GRANT_MODEL": GRANT_MODEL,
     "REFRESH_TOKEN_MODEL": REFRESH_TOKEN_MODEL,
     "APPLICATION_ADMIN_CLASS": "oauth2_provider.admin.ApplicationAdmin",
