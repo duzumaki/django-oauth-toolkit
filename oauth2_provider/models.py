@@ -84,7 +84,7 @@ class AbstractApplication(models.Model):
         (CLIENT_CONFIDENTIAL, _("Confidential")),
         (CLIENT_PUBLIC, _("Public")),
     )
-    GRANT_DEVICE_CODE = "device_code"
+    GRANT_DEVICE_CODE = "device-code"
 
     GRANT_AUTHORIZATION_CODE = "authorization-code"
     GRANT_IMPLICIT = "implicit"
@@ -97,6 +97,7 @@ class AbstractApplication(models.Model):
         (GRANT_PASSWORD, _("Resource owner password-based")),
         (GRANT_CLIENT_CREDENTIALS, _("Client credentials")),
         (GRANT_OPENID_HYBRID, _("OpenID connect hybrid")),
+        (GRANT_DEVICE_CODE, _("Device Code")),
     )
 
     NO_ALGORITHM = ""
