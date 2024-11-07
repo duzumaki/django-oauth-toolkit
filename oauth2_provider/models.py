@@ -54,6 +54,32 @@ class TokenChecksumField(models.CharField):
         return super().pre_save(model_instance, add)
 
 
+class AbstractDeviceFlow(models.Model):
+    AUTHORIZATION_PENDING = "authorization-pending"
+    EXPIRED = "expired"
+    DENIED = "denied"
+    AUTHORIZED = "authorized"
+
+    DEVICE_FLOW_STATUS = (
+        (AUTHORIZATION_PENDING, _("Authorization pending")),
+        (EXPIRED, _("Expired")),
+        (DENIED, _("Denied")),
+        (AUTHORIZED, _("Authorized"))
+    )
+
+    id = models.BigAutoField(primary_key=True)
+    device_code = models.CharField(max_length=100)
+    user_code = models.CharField(max_length=100)
+    scope = models.CharField(default="openid")
+    interval = models.IntegerField(default=5)
+    expiration = models.IntegerField(default=1800)
+    status = models.CharField(
+        blank=True, choices=DEVICE_FLOW_STATUS,default=AUTHORIZATION_PENDING
+    )
+    client_id = models.CharField(max_length=100, unique=True, default=generate_client_id, db_index=True)
+    last_checked = models.DateTimeField(auto_now=True)
+
+
 class AbstractApplication(models.Model):
     """
     An Application instance represents a Client on the Authorization server.
