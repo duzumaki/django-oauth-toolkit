@@ -56,7 +56,7 @@ class TokenChecksumField(models.CharField):
         return super().pre_save(model_instance, add)
 
 
-class AbstractDeviceFlow(models.Model):
+class AbstractDevice(models.Model):
     class Meta:
         abstract = True
 
@@ -90,6 +90,22 @@ class AbstractDeviceFlow(models.Model):
         now = datetime.now(timezone.utc)
         if (now - self.last_checked).total_seconds() < self.interval:
             raise SlowDownError()
+
+
+class DeviceManager(models.Manager):
+    def get_by_natural_key(self, client_id):
+        return self.get(client_id=client_id)
+
+
+class Device(AbstractDevice):
+    objects = DeviceManager()
+
+    class Meta(DeviceManager.Meta):
+        swappable = "OAUTH2_PROVIDER_DEVICE_MODEL"
+
+    def natural_key(self):
+        return (self.client_id,)
+
 
 class AbstractApplication(models.Model):
     """
