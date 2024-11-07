@@ -100,7 +100,7 @@ class DeviceManager(models.Manager):
 class Device(AbstractDevice):
     objects = DeviceManager()
 
-    class Meta(DeviceManager.Meta):
+    class Meta(AbstractDevice.Meta):
         swappable = "OAUTH2_PROVIDER_DEVICE_MODEL"
 
     def natural_key(self):
