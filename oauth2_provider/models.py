@@ -3,8 +3,10 @@ import logging
 import time
 import uuid
 from contextlib import suppress
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from urllib.parse import parse_qsl, urlparse
+from oauthlib.oauth2.rfc8628 import SlowDownError
+
 
 from django.apps import apps
 from django.conf import settings
@@ -55,6 +57,9 @@ class TokenChecksumField(models.CharField):
 
 
 class AbstractDeviceFlow(models.Model):
+    class Meta:
+        abstract = True
+
     AUTHORIZATION_PENDING = "authorization-pending"
     EXPIRED = "expired"
     DENIED = "denied"
@@ -79,6 +84,12 @@ class AbstractDeviceFlow(models.Model):
     client_id = models.CharField(max_length=100, unique=True, default=generate_client_id, db_index=True)
     last_checked = models.DateTimeField(auto_now=True)
 
+
+    @property
+    def polling_check(self):
+        now = datetime.now(timezone.utc)
+        if (now - self.last_checked).total_seconds() < self.interval:
+            raise SlowDownError()
 
 class AbstractApplication(models.Model):
     """
