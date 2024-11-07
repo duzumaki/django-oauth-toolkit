@@ -106,6 +106,8 @@ class Device(AbstractDevice):
     def natural_key(self):
         return (self.client_id,)
 
+def create_device():
+    ...
 
 class AbstractApplication(models.Model):
     """
