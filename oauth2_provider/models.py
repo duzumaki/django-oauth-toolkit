@@ -5,7 +5,7 @@ import uuid
 from contextlib import suppress
 from datetime import timedelta, datetime, timezone
 from urllib.parse import parse_qsl, urlparse
-from oauthlib.oauth2.rfc8628 import SlowDownError
+from oauthlib.oauth2.rfc8628.errors import SlowDownError
 
 
 from django.apps import apps
