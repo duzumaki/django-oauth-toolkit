@@ -4,6 +4,7 @@ import time
 import uuid
 from contextlib import suppress
 from datetime import timedelta, datetime, timezone
+from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlparse
 from oauthlib.oauth2.rfc8628.errors import SlowDownError
 
@@ -106,8 +107,28 @@ class Device(AbstractDevice):
     def natural_key(self):
         return (self.client_id,)
 
-def create_device():
-    ...
+
+@dataclass
+class DeviceRequest:
+    client_id: str
+    scope: str = "openid"
+
+
+@dataclass
+class DeviceCodeResponse:
+    verification_uri: str
+    expires_in: int
+    user_code: int
+    device_code: str
+
+def create_device(device_request: DeviceRequest, device_response: DeviceCodeResponse) -> Device:
+    return Device(
+        device_code=device_response.device_code,
+        user_code=device_response.user_code,
+        scope=device_request.scope,
+        expiration=device_response.expires_in,
+        client_id=device_request.client_id,
+    )
 
 class AbstractApplication(models.Model):
     """
