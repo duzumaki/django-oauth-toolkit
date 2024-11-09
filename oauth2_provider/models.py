@@ -78,7 +78,7 @@ class AbstractDevice(models.Model):
     user_code = models.CharField(max_length=100)
     scope = models.CharField(default="openid")
     interval = models.IntegerField(default=5)
-    expiration = models.IntegerField(default=1800)
+    expires = models.DateTimeField()
     status = models.CharField(
         blank=True, choices=DEVICE_FLOW_STATUS,default=AUTHORIZATION_PENDING
     )
@@ -95,7 +95,7 @@ class AbstractDevice(models.Model):
 
 class DeviceManager(models.Manager):
     def get_by_natural_key(self, client_id):
-        return self.get(client_id=client_id)
+        return self.get(client_id=client_id, device_code=self.device_code, user_code=self.user_code)
 
 
 class Device(AbstractDevice):
@@ -105,7 +105,7 @@ class Device(AbstractDevice):
         swappable = "OAUTH2_PROVIDER_DEVICE_MODEL"
 
     def natural_key(self):
-        return (self.client_id,)
+        return (self.client_id,self.device_code,self.user_code)
 
 
 @dataclass
@@ -121,14 +121,19 @@ class DeviceCodeResponse:
     user_code: int
     device_code: str
 
-def create_device(device_request: DeviceRequest, device_response: DeviceCodeResponse) -> Device:
-    return Device(
-        device_code=device_response.device_code,
-        user_code=device_response.user_code,
-        scope=device_request.scope,
-        expiration=device_response.expires_in,
+def get_or_create_device(device_request: DeviceRequest, device_response: DeviceCodeResponse) -> Device:
+    now = datetime.now(tz=timezone.utc)
+
+    return Device.objects.get_or_create(
         client_id=device_request.client_id,
+        defaults={
+            "device_code":device_response.device_code,
+            "user_code":device_response.user_code,
+            "scope":device_request.scope,
+            "expires": now + timedelta(seconds=device_response.expires_in)
+        }
     )
+
 
 class AbstractApplication(models.Model):
     """
