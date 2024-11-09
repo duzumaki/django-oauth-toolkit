@@ -64,17 +64,15 @@ class AbstractDevice(models.Model):
     AUTHORIZATION_PENDING = "authorization-pending"
     EXPIRED = "expired"
     DENIED = "denied"
-    AUTHORIZED = "authorized"
 
     DEVICE_FLOW_STATUS = (
         (AUTHORIZATION_PENDING, _("Authorization pending")),
         (EXPIRED, _("Expired")),
-        (DENIED, _("Denied")),
-        (AUTHORIZED, _("Authorized"))
+        (DENIED, _("Denied"))
     )
 
     id = models.BigAutoField(primary_key=True)
-    device_code = models.CharField(max_length=100)
+    device_code = models.CharField(max_length=100, unique=True)
     user_code = models.CharField(max_length=100)
     scope = models.CharField(default="openid")
     interval = models.IntegerField(default=5)
@@ -82,7 +80,7 @@ class AbstractDevice(models.Model):
     status = models.CharField(
         blank=True, choices=DEVICE_FLOW_STATUS,default=AUTHORIZATION_PENDING
     )
-    client_id = models.CharField(max_length=100, unique=True, default=generate_client_id, db_index=True)
+    client_id = models.CharField(max_length=100, default=generate_client_id, db_index=True)
     last_checked = models.DateTimeField(auto_now=True)
 
 
@@ -94,8 +92,8 @@ class AbstractDevice(models.Model):
 
 
 class DeviceManager(models.Manager):
-    def get_by_natural_key(self, client_id):
-        return self.get(client_id=client_id, device_code=self.device_code, user_code=self.user_code)
+    def get_by_natural_key(self, client_id, device_code, user_code):
+        return self.get(client_id=client_id, device_code=device_code, user_code=user_code)
 
 
 class Device(AbstractDevice):
@@ -121,19 +119,16 @@ class DeviceCodeResponse:
     user_code: int
     device_code: str
 
-def get_or_create_device(device_request: DeviceRequest, device_response: DeviceCodeResponse) -> Device:
+def create_device(device_request: DeviceRequest, device_response: DeviceCodeResponse) -> Device:
     now = datetime.now(tz=timezone.utc)
 
-    return Device.objects.get_or_create(
+    return Device.objects.create(
         client_id=device_request.client_id,
-        defaults={
-            "device_code":device_response.device_code,
-            "user_code":device_response.user_code,
-            "scope":device_request.scope,
-            "expires": now + timedelta(seconds=device_response.expires_in)
-        }
+        device_code=device_response.device_code,
+        user_code=device_response.user_code,
+        scope=device_request.scope,
+        expires=now + timedelta(seconds=device_response.expires_in)
     )
-
 
 class AbstractApplication(models.Model):
     """
