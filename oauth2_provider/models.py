@@ -118,6 +118,7 @@ class DeviceCodeResponse:
     expires_in: int
     user_code: int
     device_code: str
+    interval: int
 
 def create_device(device_request: DeviceRequest, device_response: DeviceCodeResponse) -> Device:
     now = datetime.now(tz=timezone.utc)
