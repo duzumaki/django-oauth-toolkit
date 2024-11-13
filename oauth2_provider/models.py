@@ -61,11 +61,13 @@ class AbstractDevice(models.Model):
     class Meta:
         abstract = True
 
+    AUTHORIZED = "authorized"
     AUTHORIZATION_PENDING = "authorization-pending"
     EXPIRED = "expired"
     DENIED = "denied"
 
     DEVICE_FLOW_STATUS = (
+        (AUTHORIZED, _("Authorized")),
         (AUTHORIZATION_PENDING, _("Authorization pending")),
         (EXPIRED, _("Expired")),
         (DENIED, _("Denied"))
