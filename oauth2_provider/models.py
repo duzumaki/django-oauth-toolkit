@@ -163,7 +163,7 @@ class AbstractApplication(models.Model):
         (CLIENT_CONFIDENTIAL, _("Confidential")),
         (CLIENT_PUBLIC, _("Public")),
     )
-    GRANT_DEVICE_CODE = "device-code"
+    GRANT_DEVICE_CODE = "urn:ietf:params:oauth:grant-type:device_code"
 
     GRANT_AUTHORIZATION_CODE = "authorization-code"
     GRANT_IMPLICIT = "implicit"
