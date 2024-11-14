@@ -508,7 +508,7 @@ class OAuth2Validator(RequestValidator):
         rfc:`8.4`, so validate the response_type only if it matches "code" or "token"
         """
         if response_type == "code":
-            return client.allows_grant_type(AbstractApplication.GRANT_AUTHORIZATION_CODE)
+            return client.allows_grant_type(AbstractApplication.GRANT_AUTHORIZATION_CODE) or client.allows_grant_type(AbstractApplication.GRANT_DEVICE_CODE)
         elif response_type == "token":
             return client.allows_grant_type(AbstractApplication.GRANT_IMPLICIT)
         elif response_type == "id_token":
