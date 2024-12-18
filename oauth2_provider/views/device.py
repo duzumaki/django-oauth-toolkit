@@ -1,4 +1,6 @@
 # views.py
+import json
+
 from oauth2_provider.views.mixins import OAuthLibMixin
 from django.views.generic import View
 from django.views.decorators.csrf import csrf_exempt
@@ -18,12 +20,16 @@ class DeviceAuthorizationView(OAuthLibMixin, View):
     server_class = DeviceApplicationServer
 
     def post(self, request, *args, **kwargs):
-        headers, data, status = self.create_device_authorization_response(request)
+        headers, response, status = self.create_device_authorization_response(request)
 
         parsed_body: dict[str, list[str]] = parse_qs(request.body.decode())
-        device_request = DeviceRequest(**{k: v[0] for k, v in parsed_body.items()})
-        device_response = DeviceCodeResponse(**data)
+        device_request = DeviceRequest(client_id=parsed_body["client_id"], scope=parsed_body.get("scope", "openid"))
+
+        if status != 200:
+            return http.JsonResponse(data=json.loads(response), status=status, headers=headers)
+
+        device_response = DeviceCodeResponse(**response)
         create_device(device_request, device_response)
 
-        return http.JsonResponse(data=data, status=status, headers=headers)
+        return http.JsonResponse(data=response, status=status, headers=headers)
 
