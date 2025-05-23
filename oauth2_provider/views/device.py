@@ -54,17 +54,18 @@ def device_user_code_view(request):
         return render(request, "oauth2_provider/device/user_code.html", {"form": form})
 
     if not form.is_valid():
-        return render(request, "oauth2_provider/device/user_code.html", {"form": form})
+        form.add_error(None, "Form invalid")
+        return render(request, "oauth2_provider/device/user_code.html", {"form": form}, status=400)
 
     user_code: str = form.cleaned_data["user_code"]
-    device: Device = get_device_model().objects.get(user_code=user_code)
-
-    device.user = request.user
-    device.save(update_fields=["user"])
+    device: Device = get_device_model().objects.filter(user_code=user_code).first()
 
     if device is None:
         form.add_error("user_code", "Incorrect user code")
-        return render(request, "oauth2_provider/device/user_code.html", {"form": form})
+        return render(request, "oauth2_provider/device/user_code.html", {"form": form}, status=404)
+
+    device.user = request.user
+    device.save(update_fields=["user"])
 
     if device.is_expired():
         device.status = device.EXPIRED
@@ -72,7 +73,7 @@ def device_user_code_view(request):
         raise ExpiredTokenError
 
     # User of device has already made their decision for this device
-    if device.status in (device.DENIED, device.AUTHORIZED):
+    if device.status != device.AUTHORIZATION_PENDING:
         raise AccessDenied
 
     # 308 to indicate we want to keep the redirect being a POST request
@@ -83,10 +84,13 @@ def device_user_code_view(request):
 
 @login_required
 def device_confirm_view(request: http.HttpRequest, device_code: str):
-    device: Device = get_device_model().objects.get(device_code=device_code)
+    device: Device = get_device_model().objects.filter(device_code=device_code).first()
 
-    if device.status in (device.AUTHORIZED, device.DENIED):
-        return http.HttpResponse("Invalid")
+    if device is None:
+        return http.HttpResponseNotFound("<h1>Device not found</h1>")
+
+    if device.status != device.AUTHORIZATION_PENDING:
+        return http.HttpResponseBadRequest("Invalid")
 
     action = request.POST.get("action")
 

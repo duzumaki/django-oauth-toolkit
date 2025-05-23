@@ -1,11 +1,14 @@
+from datetime import datetime, timedelta
 from unittest import mock
 from urllib.parse import urlencode
 
 import django.http.response
 import pytest
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 from django.urls import reverse
+from oauthlib.oauth2.rfc8628.errors import AccessDenied, ExpiredTokenError
 
 import oauth2_provider.models
 from oauth2_provider.models import (
@@ -44,6 +47,10 @@ class DeviceFlowBaseTestCase(TestCase):
             authorization_grant_type=Application.GRANT_DEVICE_CODE,
             client_secret="abcdefghijklmnopqrstuvwxyz1234567890",
         )
+
+    def tearDown(self):
+        DeviceModel.objects.all().delete()
+        return super().tearDown()
 
 
 class TestDeviceFlow(DeviceFlowBaseTestCase):
@@ -129,7 +136,6 @@ class TestDeviceFlow(DeviceFlowBaseTestCase):
         # -----------------------
         self.oauth2_settings.OAUTH_DEVICE_VERIFICATION_URI = "example.com/device"
         self.oauth2_settings.OAUTH_DEVICE_USER_CODE_GENERATOR = lambda: "xyz"
-        self.oauth2_settings.OAUTH_DEVICE_USER_CODE_GENERATOR = lambda: "xyz"
         self.oauth2_settings.OAUTH_PRE_TOKEN_VALIDATION = [set_oauthlib_user_to_device_request_user]
 
         request_data: dict[str, str] = {
@@ -164,13 +170,28 @@ class TestDeviceFlow(DeviceFlowBaseTestCase):
         assert "form" in get_response.context  # Ensure the form is rendered in the context
 
         # 1.1.0  User visits the /device endpoint in their browsers and submits wrong user code
-        with pytest.raises(oauth2_provider.models.Device.DoesNotExist):
-            self.client.post(
-                reverse("oauth2_provider:device"),
-                data={"user_code": "invalid_code"},
-            )
+        self.assertContains(
+            self.client.post(reverse("oauth2_provider:device"), data={"user_code": "invalid_code"}),
+            status_code=404,
+            text="Incorrect user code",
+            count=1,
+        )
 
-        # 1.1.1: user submits valid user code
+        # 1.1.1  User visits the /device endpoint in their browsers, or in the command line, submits
+        # a form that does not include the expected required field in the request.
+        self.assertContains(
+            self.client.post(
+                reverse("oauth2_provider:device"), data={"not_user_code": "could_be_valid_code"}
+            ),
+            status_code=400,
+            text="Form invalid",
+            count=1,
+        )
+
+        # Note: the device not being in the expected test covered in the other test
+        # test_device_flow_authorization_device_invalid_state
+
+        # 1.1.2: user submits valid user code
         post_response_valid = self.client.post(
             reverse("oauth2_provider:device"),
             data={"user_code": "xyz"},
@@ -227,6 +248,69 @@ class TestDeviceFlow(DeviceFlowBaseTestCase):
             token=token_data["refresh_token"]
         )
         assert refresh_token.user == device.user
+
+    def test_device_flow_authorization_device_invalid_state_raises_error(self):
+        """
+        This test asserts that only devices in the expected state (authorization-pending)
+        can be approved/denied by the user.
+        """
+
+        UserModel.objects.create_user(
+            username="test_user_device_flow",
+            email="test_device@example.com",
+            password="password123",
+        )
+        self.client.login(username="test_user_device_flow", password="password123")
+
+        device = DeviceModel(
+            client_id="client_id",
+            device_code="device_code",
+            user_code="user_code",
+            scope="scope",
+            expires=datetime.now() + timedelta(days=1),
+        )
+        device.save()
+
+        # This simulates pytest.mark.parameterize, which unfortunately does not work with unittest
+        # and consequently with Django TestCase.
+        for invalid_state in ["authorized", "denied", "expired"]:
+            # Set the device into an incorrect state.
+            device.status = invalid_state
+            device.save(update_fields=["status"])
+
+            with self.assertRaises(AccessDenied):
+                self.client.post(
+                    reverse("oauth2_provider:device"),
+                    data={"user_code": "user_code"},
+                )
+
+    def test_device_flow_authorization_device_expired_raises_error(self):
+        """
+        This test asserts that only devices in the expected state (authorization-pending)
+        can be approved/denied by the user.
+        """
+
+        UserModel.objects.create_user(
+            username="test_user_device_flow",
+            email="test_device@example.com",
+            password="password123",
+        )
+        self.client.login(username="test_user_device_flow", password="password123")
+
+        device = DeviceModel(
+            client_id="client_id",
+            device_code="device_code",
+            user_code="user_code",
+            scope="scope",
+            expires=datetime.now() + timedelta(seconds=-1),  # <- essentially expired
+        )
+        device.save()
+
+        with self.assertRaises(ExpiredTokenError):
+            self.client.post(
+                reverse("oauth2_provider:device"),
+                data={"user_code": "user_code"},
+            )
 
     @mock.patch(
         "oauthlib.oauth2.rfc8628.endpoints.device_authorization.generate_token",
@@ -285,3 +369,74 @@ class TestDeviceFlow(DeviceFlowBaseTestCase):
             "error": "invalid_request",
             "error_description": "Invalid client_id parameter value.",
         }
+
+    def test_device_confirm_and_user_code_views_require_login(self):
+        URLs = [
+            reverse("oauth2_provider:device-confirm", kwargs={"device_code": None}),
+            reverse("oauth2_provider:device-confirm", kwargs={"device_code": "abc"}),
+            reverse("oauth2_provider:device"),
+        ]
+
+        for url in URLs:
+            r = self.client.get(url)
+            assert r.status_code == 302
+            assert r["Location"] == f"{settings.LOGIN_URL}?next={url}"
+
+            r = self.client.post(url)
+            assert r.status_code == 302
+            assert r["Location"] == f"{settings.LOGIN_URL}?next={url}"
+
+    def test_device_confirm_view_returns_404_when_device_does_not_exist(self):
+        UserModel.objects.create_user(
+            username="test_user_device_flow",
+            email="test_device@example.com",
+            password="password123",
+        )
+        self.client.login(username="test_user_device_flow", password="password123")
+
+        device = DeviceModel(
+            client_id="client_id",
+            device_code="device_code",
+            user_code="user_code",
+            scope="scope",
+            expires=datetime.now(),
+        )
+        device.save()
+
+        self.assertContains(
+            self.client.post(reverse("oauth2_provider:device-confirm", kwargs={"device_code": "abc"})),
+            status_code=404,
+            text="Device not found",
+            count=1,
+        )
+
+    def test_device_confirm_view_returns_400_when_device_in_incorrect_state(self):
+        UserModel.objects.create_user(
+            username="test_user_device_flow",
+            email="test_device@example.com",
+            password="password123",
+        )
+        self.client.login(username="test_user_device_flow", password="password123")
+
+        device = DeviceModel(
+            client_id="client_id",
+            device_code="device_code",
+            user_code="user_code",
+            scope="scope",
+            expires=datetime.now(),
+        )
+        device.save()
+
+        for invalid_state in ["authorized", "expired", "denied"]:
+            # Set the device into an incorrect state.
+            device.status = invalid_state
+            device.save(update_fields=["status"])
+
+            self.assertContains(
+                self.client.post(
+                    reverse("oauth2_provider:device-confirm", kwargs={"device_code": "device_code"})
+                ),
+                status_code=400,
+                text="Invalid",
+                count=1,
+            )
